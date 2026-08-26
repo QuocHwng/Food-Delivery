@@ -2,7 +2,7 @@ package handler
 
 import "github.com/gin-gonic/gin"
 
-func SetupRouter(h *OrderHandler, jwtSecret string) *gin.Engine {
+func SetupRouter(h *OrderHandler, dashHandler *DashboardHandler, jwtSecret string) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Logger(), gin.Recovery())
 
@@ -26,6 +26,17 @@ func SetupRouter(h *OrderHandler, jwtSecret string) *gin.Engine {
 
 		// Owner routes
 		protected.PATCH("/orders/:id/status", RequireRole("restaurant_owner", "admin"), h.UpdateStatus)
+
+		// Dashboard & Stats routes (for Restaurant Owner)
+		dash := protected.Group("/orders/restaurant/:id")
+		dash.Use(RequireRole("restaurant_owner", "admin"))
+		{
+			dash.GET("/dashboard", dashHandler.GetOverview)
+			dash.GET("/active", dashHandler.GetActiveOrders)
+			dash.GET("/stats/revenue", dashHandler.GetRevenueStats)
+			dash.GET("/stats/top-items", dashHandler.GetTopItems)
+			dash.GET("/stats/orders-count", dashHandler.GetOrderCounts)
+		}
 	}
 
 	return r

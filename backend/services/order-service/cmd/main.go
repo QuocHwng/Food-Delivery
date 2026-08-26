@@ -33,8 +33,12 @@ func main() {
 	restClient := client.NewRestaurantClient(cfg.RestaurantServiceURL)
 	svc := service.NewOrderService(orderRepo, restClient)
 	
+	dashRepo := repository.NewDashboardRepository(db)
+	dashSvc := service.NewDashboardService(dashRepo)
+	dashHandler := handler.NewDashboardHandler(dashSvc)
+
 	h := handler.NewOrderHandler(svc)
-	r := handler.SetupRouter(h, cfg.JWTSecret)
+	r := handler.SetupRouter(h, dashHandler, cfg.JWTSecret)
 
 	addr := fmt.Sprintf(":%s", cfg.Port)
 	log.Printf("🚀 Order Service running on %s", addr)
