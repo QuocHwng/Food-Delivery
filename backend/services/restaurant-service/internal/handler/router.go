@@ -2,7 +2,7 @@ package handler
 
 import "github.com/gin-gonic/gin"
 
-func SetupRouter(h *RestaurantHandler, jwtSecret string) *gin.Engine {
+func SetupRouter(h *RestaurantHandler, reviewHandler *ReviewHandler, jwtSecret string) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Logger(), gin.Recovery())
 
@@ -10,24 +10,30 @@ func SetupRouter(h *RestaurantHandler, jwtSecret string) *gin.Engine {
 		c.JSON(200, gin.H{"status": "ok", "service": "restaurant-service"})
 	})
 
-	api := r.Group("/api")
-
-	// Public APIs
-	api.GET("/restaurants", h.ListRestaurants)
-	api.GET("/restaurants/:id", h.GetRestaurantDetail)
-	api.GET("/restaurants/:id/menu", h.GetMenu)
-
-	// Protected APIs
-	protected := api.Group("/")
-	protected.Use(JWTMiddleware(jwtSecret))
+	api := r.Group("/api/restaurants")
 	{
-		// Only owners (or admins)
-		owners := protected.Group("/")
-		owners.Use(RequireRole("restaurant_owner", "admin"))
+		api.GET("", h.ListRestaurants)
+		api.GET("/:id", h.GetRestaurantDetail)
+		api.GET("/:id/menu", h.GetMenu)
+		api.GET("/:id/ratings", reviewHandler.GetRestaurantReviews)
+
+		protected := api.Group("")
+		protected.Use(JWTMiddleware(jwtSecret))
 		{
-			owners.POST("/restaurants", h.CreateRestaurant)
-			owners.POST("/restaurants/:id/menu-categories", h.CreateMenuCategory)
-			owners.POST("/restaurants/:id/menu-items", h.CreateMenuItem)
+			protected.POST("", h.CreateRestaurant)
+
+			// Review related
+			protected.POST("/orders/:order_id/ratings", reviewHandler.CreateReview)
+			protected.POST("/ratings/:id/reply", reviewHandler.ReplyReview)
+			protected.PUT("/ratings/:id/reply", reviewHandler.ReplyReview)
+
+			// Only owners (or admins)
+			owners := protected.Group("/")
+			owners.Use(RequireRole("restaurant_owner", "admin"))
+			{
+				owners.POST("/:id/menu-categories", h.CreateMenuCategory)
+				owners.POST("/:id/menu-items", h.CreateMenuItem)
+			}
 		}
 	}
 

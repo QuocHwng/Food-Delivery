@@ -30,11 +30,14 @@ func main() {
 	// Init layers
 	restRepo := repository.NewRestaurantRepository(db)
 	menuRepo := repository.NewMenuRepository(db)
+	reviewRepo := repository.NewReviewRepository(db)
 	
 	svc := service.NewRestaurantService(restRepo, menuRepo)
+	reviewSvc := service.NewReviewService(reviewRepo, restRepo)
 	
 	h := handler.NewRestaurantHandler(svc)
-	r := handler.SetupRouter(h, cfg.JWTSecret)
+	reviewHandler := handler.NewReviewHandler(reviewSvc)
+	r := handler.SetupRouter(h, reviewHandler, cfg.JWTSecret)
 
 	addr := fmt.Sprintf(":%s", cfg.Port)
 	log.Printf("🚀 Restaurant Service running on %s", addr)
