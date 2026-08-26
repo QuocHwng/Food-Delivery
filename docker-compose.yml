@@ -1,0 +1,180 @@
+version: "3.9"
+
+services:
+  # ─── Infrastructure ───────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: food_delivery_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-foodadmin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secret}
+      POSTGRES_DB: ${POSTGRES_DB:-food_delivery}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - food-delivery-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-foodadmin}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: food_delivery_rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
+    ports:
+      - "5672:5672"    # AMQP
+      - "15672:15672"  # Management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - food-delivery-net
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  # ─── Backend Services ─────────────────────────────────────────────────────────
+  user-service:
+    build:
+      context: ./backend/services/user-service
+      dockerfile: Dockerfile
+    container_name: food_delivery_user_svc
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - PORT=8081
+      - DB_SCHEMA=users
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - food-delivery-net
+
+  order-service:
+    build:
+      context: ./backend/services/order-service
+      dockerfile: Dockerfile
+    container_name: food_delivery_order_svc
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - PORT=8082
+      - DB_SCHEMA=orders
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - food-delivery-net
+
+  payment-service:
+    build:
+      context: ./backend/services/payment-service
+      dockerfile: Dockerfile
+    container_name: food_delivery_payment_svc
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - PORT=8083
+      - DB_SCHEMA=payments
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - food-delivery-net
+
+  restaurant-service:
+    build:
+      context: ./backend/services/restaurant-service
+      dockerfile: Dockerfile
+    container_name: food_delivery_restaurant_svc
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - PORT=8084
+      - DB_SCHEMA=restaurants
+    ports:
+      - "8084:8084"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - food-delivery-net
+
+  notification-service:
+    build:
+      context: ./backend/services/notification-service
+      dockerfile: Dockerfile
+    container_name: food_delivery_notif_svc
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - PORT=8085
+      - DB_SCHEMA=notifications
+    ports:
+      - "8085:8085"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - food-delivery-net
+
+  gateway:
+    build:
+      context: ./backend/gateway
+      dockerfile: Dockerfile
+    container_name: food_delivery_gateway
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - PORT=8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      - user-service
+      - order-service
+      - payment-service
+      - restaurant-service
+      - notification-service
+    networks:
+      - food-delivery-net
+
+  # ─── Frontend ─────────────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: food_delivery_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - gateway
+    networks:
+      - food-delivery-net
+
+volumes:
+  postgres_data:
+  rabbitmq_data:
+
+networks:
+  food-delivery-net:
+    driver: bridge

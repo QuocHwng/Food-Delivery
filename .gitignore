@@ -1,0 +1,63 @@
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+vendor/
+/bin/
+/dist/
+
+# Go env
+go.sum
+
+# Air (live reload)
+tmp/
+
+# Node / Frontend
+node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+frontend/.env.production
+
+# Environment files
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Docker
+.docker/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Test coverage
+coverage/
+*.coverprofile
+
+# Compiled binaries (per service)
+backend/gateway/gateway
+backend/services/user-service/user-service
+backend/services/order-service/order-service
+backend/services/payment-service/payment-service
+backend/services/restaurant-service/restaurant-service
+backend/services/notification-service/notification-service
+
+# Postgres data (if mounted locally)
+data/postgres/
+
+# OS
+.DS_Store
